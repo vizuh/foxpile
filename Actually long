@@ -1,0 +1,183 @@
+##                                                           ##
+##    wokring version with buttons for selection of roles    ##
+## combined effort of Atroci and Mugna for the common Warden ##
+##             includes bot token so keep secret             ##
+##                                                           ##
+
+import discord
+from discord.ext import commands
+from discord.ui import Button, View
+import asyncio
+from datetime import timedelta
+import time
+
+intents = discord.Intents.default()
+intents.messages = True
+intents.guilds = True
+intents.reactions = True
+intents.message_content = True
+
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+channel_expirations = {}
+
+async def delete_channel_if_expired(channel_id):
+    """Deletes the channel if the current time is past the end_timestamp and sends a notification 12 hours before."""
+    while True:
+        if channel_id in channel_expirations:
+            end_timestamp = channel_expirations[channel_id]['timestamp']
+            time_left = end_timestamp - time.time()
+            
+            if time_left <= 0:
+                channel = bot.get_channel(channel_id)
+                if channel:
+                    await channel.delete(reason="Time expired for this channel.")
+                del channel_expirations[channel_id]  # Remove the channel from tracking
+                break
+            elif time_left <= 43200 and not channel_expirations[channel_id].get('notified', False):  # 12 hours in seconds
+                channel = bot.get_channel(channel_id)
+                if channel:
+                    await channel.send("@here, this channel will expire in less than 12 hours!")
+                    channel_expirations[channel_id]['notified'] = True
+        await asyncio.sleep(60)  # Sleep for 60 seconds before checking again
+
+def combine_and_split(args):
+    # Combine the arguments into a single string
+    combined_string = ' '.join(args)
+
+    # Split the combined string based on commas
+    separated_args = combined_string.split(',')
+
+    # Strip whitespace and commas from each separated argument and filter out empty strings
+    separated_args = filter(None, [arg.strip(', ') for arg in separated_args])
+
+    return list(separated_args)
+
+class RoleView(View):
+    def __init__(self, guild):
+        super().__init__()
+        self.guild = guild
+        # Add buttons for each role
+        for role in guild.roles:
+            if role.is_default() or role.managed:  # Skip @everyone role and managed roles (bots, etc.)
+                continue
+            self.add_item(RoleButton(role))
+
+class RoleButton(Button):
+    def __init__(self, role):
+        super().__init__(label=role.name, style=discord.ButtonStyle.primary)
+        self.role = role
+
+    async def callback(self, interaction):
+        global t_name
+        global t_code
+        global t_args
+        # Check if the role still exists
+        if self.role not in self.view.guild.roles:
+            await interaction.response.send_message("This role no longer exists.", ephemeral=True)
+            return
+
+        # Create a new channel for the role
+        overwrites = {
+            self.view.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            self.role: discord.PermissionOverwrite(read_messages=True)
+        }
+        channel = await self.view.guild.create_text_channel(t_name, overwrites=overwrites)
+        await interaction.response.send_message(f'Channel created for role {self.role.name}: {channel.mention}',
+                                                    ephemeral=True)
+
+        # Disable all other buttons
+        for item in self.view.children:
+            item.disabled = True
+        # Calculate the expiration timestamp and store it
+        end_timestamp = time.time() + timedelta(hours=48).total_seconds()
+        channel_expirations[channel.id] = {'timestamp': end_timestamp}
+
+        discord_timestamp = f"<t:{int(end_timestamp)}:F>"
+
+        # Calculate HammerTime
+        current_time = time.time()
+        time_difference = current_time - end_timestamp
+        hammer_time = f"HammerTime: {time_difference} seconds"
+
+        await channel.send(f"Stockpile Code: {t_code}. This stockpile expires on {discord_timestamp}. {hammer_time}")
+
+        # Sending the extra args to chat
+        for index, arg in enumerate(t_args, start=1):
+            await channel.send(f'Extra info {index}: {arg}')
+
+        # Start a task to monitor and delete the channel after expiration
+        asyncio.create_task(delete_channel_if_expired(new_channel.id))
+
+        # Resetting global variables
+        t_name = 0
+        t_role = 0
+        t_code = 0
+
+        # Disable all other buttons
+        for item in self.view.children:
+            item.disabled = True
+
+        # Update the message with the disabled buttons
+        await interaction.message.edit(view=self.view)
+
+
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def stockpile(ctx, *args):
+    global t_name
+    global t_code
+    global t_args
+    """Creates a channel that is only accessible by a specified role and includes a stockpile code."""
+    # Deleting the author's message
+    await ctx.message.delete()
+
+    # Check if there are at least three arguments
+    if len(args) < 2:
+        await ctx.send("Please provide at least two arguments: name, code, extra info")
+        return
+
+    # Operating combine_and_split function on the arguments
+    end_args = combine_and_split(args)
+
+    # Extract name, code, and stock from the first three arguments
+    t_name = end_args[0]
+    t_code = end_args[1]
+
+    # Extract the rest of the arguments into arg_list
+    t_args = end_args[2:]
+
+    # Checking Guild
+    if ctx.guild is None:
+        await ctx.send("This command can only be used in a server.")
+        return
+
+    # Creating buttons
+
+    # Send a message with the buttons
+    view = RoleView(ctx.guild)
+    await ctx.send("Choose the role:", view=view)
+
+
+
+
+
+@bot.event
+async def on_reaction_add(reaction, user):
+    """Refreshes the expiration timer every time a new reaction is added to the initial message."""
+    if user != bot.user and reaction.message.channel.id in channel_expirations:
+        # Reset the expiration time to 48 hours from now
+        new_end_timestamp = time.time() + timedelta(hours=48).total_seconds()
+        channel_expirations[reaction.message.channel.id]['timestamp'] = new_end_timestamp
+        
+        # Remove 'notified' flag to enable another 12-hour notification
+        channel_expirations[reaction.message.channel.id].pop('notified', None)
+        
+        discord_timestamp = f"<t:{int(new_end_timestamp)}:F>"
+        await reaction.message.channel.send(f"The timer has been refreshed. This stockpile now expires on {discord_timestamp}.")
+
+
+
+# Replace 'YOUR_BOT_TOKEN' with your actual bot token
+bot.run('MTIwNTE3NTU0ODUyMzg0Nzc2MQ.G1i0KF.dtla3zMfGEZpa5jQkzfdWoVL15-EvH_HONLsrE')
