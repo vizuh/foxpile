@@ -34,10 +34,10 @@ async def delete_channel_if_expired(channel_id):
                     await channel.delete(reason="Time expired for this channel.")
                 del channel_expirations[channel_id]  # Remove the channel from tracking
                 break
-            elif time_left <= 43200 and not channel_expirations[channel_id].get('notified', False):
+            elif time_left <= 43460 and not channel_expirations[channel_id].get('notified', False):
                 channel = bot.get_channel(channel_id)
                 if channel:
-                    await channel.send("@here, this channel will expire in less than 12 hours!")
+                    await channel.send("@here, this channel will expire in about 12 hours!")
                     channel_expirations[channel_id]['notified'] = True
         await asyncio.sleep(60)
 
@@ -69,15 +69,15 @@ class CustomButton(Button):
 
 
 @bot.command()
-@commands.has_permissions(manage_channels=True)
 async def stockpile(ctx, *args):
     await ctx.message.delete()
 
-    if len(args) < 2:
-        await ctx.send("Please provide at least two arguments: name, code, extra info")
+    end_args = combine_and_split(args)
+
+    if len(end_args) < 2:
+        await ctx.send("Please provide at least two arguments: (name,code). extra arguments can be provided if seperated via commas.")
         return
 
-    end_args = combine_and_split(args)
     t_name = end_args[0]
     t_code = end_args[1]
     t_args = end_args[2:]
@@ -90,10 +90,12 @@ async def stockpile(ctx, *args):
     items = ctx.author.roles  # Or any list of items you want to use for selection
 
     view = CustomView(items)
-    message = await ctx.send("Make your selection:", view=view)
+    message = await ctx.send("Select the role that will see this stockpile:", view=view)
     await view.wait()  # Wait for the user to make a selection
 
     selected_role = view.selected_item
+
+    await message.delete()
 
     if selected_role is None:
         await ctx.send("No selection made or operation cancelled.")
@@ -106,7 +108,6 @@ async def stockpile(ctx, *args):
     }
 
     channel = await ctx.guild.create_text_channel(t_name, overwrites=overwrites)
-    await ctx.send(f'Channel created for role {selected_role}: {channel.mention}')
 
     end_timestamp = time.time() + timedelta(hours=48).total_seconds()
     channel_expirations[channel.id] = {'timestamp': end_timestamp}
@@ -130,7 +131,7 @@ async def stockpile(ctx, *args):
         return
 
     view = CustomView(items)
-    message = await channel.send("Make your selection:", view=view)
+    await channel.send("{ctx.author.mention} Select a channel category to move to:", view=view)
     await view.wait()  # Wait for the user to make a selection
 
     selected_category = view.selected_item
