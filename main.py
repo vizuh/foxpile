@@ -5,11 +5,16 @@
 ##                                                           ##
 
 import discord
+import asyncio
+import time
+import os
+
 from discord.ext import commands
 from discord.ui import Button, View
-import asyncio
 from datetime import timedelta
-import time
+from dotenv import load_dotenv
+
+load_dotenv()
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -157,4 +162,4 @@ async def on_reaction_add(reaction, user):
             f"The timer has been refreshed. This stockpile now expires on {discord_timestamp}.")
 
 # Replace 'YOUR_BOT_TOKEN' with your actual bot token
-bot.run('YOUR_BOT_TOKEN')
+bot.run(os.getenv('DISCORD_SECRET_KEY'))
