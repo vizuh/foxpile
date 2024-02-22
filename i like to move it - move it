@@ -131,7 +131,7 @@ async def stockpile(ctx, *args):
         return
 
     view = CustomView(items)
-    await channel.send("{ctx.author.mention} Select a channel category to move to:", view=view)
+    await channel.send(f"{ctx.author.mention} Select a channel category to move to:", view=view)
     await view.wait()  # Wait for the user to make a selection
 
     selected_category = view.selected_item
