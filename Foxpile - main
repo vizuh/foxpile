@@ -26,6 +26,8 @@ fxpl = 'fxpl'
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+fxpl_values = {}
+
 channel_expirations = {}
 
 async def delete_channel_if_expired(channel_id):
@@ -117,18 +119,20 @@ async def create_stockpile_channel(ctx, t_name, t_code, t_args):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def fxplc(ctx, nfxpl):
-    global fxpl
-    await ctx.message.delete()
-    if len(nfxpl) < 4:
-        await ctx.send(
-            "Provide a single argument with at least 4 characters. Try keeping it as simple as fxpl. ANY CHANNEL that will start with this can be used as a Stockpile Image Dump for Foxpile!")
+    # Ensure we're in a server context
+    if ctx.guild is None:
+        await ctx.send("This command can only be used in a server.")
         return
-    print (f'{ctx.author.name} changed {fxpl} value to {nfxpl}')
-    t_msg = await ctx.send (f'Value changed to {nfxpl}.')
-    asyncio.create_task(delete_after_delay(t_msg, 10))
-    fxpl = nfxpl
 
+    # Check if the new fxpl value is valid
+    if len(nfxpl) < 4:
+        await ctx.send("Provide a single argument with at least 4 characters.")
+        return
 
+    # Update the fxpl value for the server
+    global fxpl_values
+    fxpl_values[ctx.guild.id] = nfxpl
+    await ctx.send(f"Value changed to {nfxpl} .")
 
 @bot.command()
 async def stockpile(ctx, *args):
@@ -247,7 +251,11 @@ async def stockpile(ctx, *args):
 
 @bot.event
 async def on_message(message):
-    # Check if the message is sent in a channel whose name starts with "fxpl"
+    # Skip if message is not from a guild or if it's from the bot itself
+    if message.guild is None or message.author == bot.user:
+        return
+    # Check if the message is sent in a channel whose name starts with "fxpl" or defined prefix
+    fxpl = fxpl_values.get(message.guild.id, "fxpl")
     if message.channel.name.startswith(fxpl):
         # Check if there are any attachments in the message
         if len(message.attachments) > 0:
