@@ -8,7 +8,8 @@ COPY ./requirements.txt /code/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 # 
-COPY ./main.py /code/
+COPY ./*.py /code/
+COPY ./.env /code/.env
 
 # 
-CMD ["python", "main.py"]
+CMD ["python", "foxpile_main.py"]
