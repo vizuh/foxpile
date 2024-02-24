@@ -11,8 +11,8 @@ import aiohttp
 import asyncio
 from datetime import timedelta
 import time
-from cbut import CustomView, CustomButton
-from sman import combine_and_split
+from ui_elements import CustomView, CustomButton
+from string_utils import combine_and_split
 from imger import extract_text_with_conditions
 
 intents = discord.Intents.default()
