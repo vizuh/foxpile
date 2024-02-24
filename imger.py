@@ -1,3 +1,4 @@
+
 import pytesseract
 from PIL import Image, ImageEnhance, ImageFilter
 import re
@@ -49,26 +50,20 @@ def extract_text_with_conditions(image_path):
     found_texts = []
 
     for line in lines:
-        clean_line = re.sub(r'[\\\/\.,]', '', line).strip()
+        clean_line = re.sub(r'[\\/\.,]', '', line).strip()
         if len(clean_line) >= 3 and re.match(r'^[A-Za-z0-9 :]+$', clean_line):
             found_texts.append(clean_line)
 
     if len(found_texts) > 1:
-        # Initialize a variable to store the index of the string with a 6-digit number
         index_with_6_digit = -1
-        # Iterate through found_texts to find a string with a 6-digit number
         for i, text in enumerate(found_texts):
             if re.search(r'\d{6}', text):
-                # Remove all non-numeric characters from the string
                 modified_text = re.sub(r'\D', '', text)
-                # Update the list at the current index with the modified string
                 found_texts[i] = modified_text
                 index_with_6_digit = i
                 break
 
         if index_with_6_digit != -1:
-            # If a string with a 6-digit number was found and modified, rearrange the list
             found_texts.insert(1, found_texts.pop(index_with_6_digit))
-
 
     return found_texts, options, contrast_level
