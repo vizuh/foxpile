@@ -7,4 +7,8 @@ def combine_and_split(args):
     return list(separated_args)
 
 
- 
+def remove_hex(str):
+    if str.endswith('Hex'):
+        return str[:-3]
+    return str
+

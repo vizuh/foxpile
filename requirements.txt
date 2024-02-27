@@ -1,4 +1,5 @@
 discord==2.3.2
 asyncio==3.4.3
 pytesseract==0.3.10
+aiohttp==3.9.3
 python-dotenv
