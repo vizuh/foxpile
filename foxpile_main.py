@@ -72,7 +72,7 @@ class RefreshButton(View):
         channel_expirations[channel_id].pop('notified', None)
         channel_expirations[channel_id].pop('final_notice', None)
         discord_timestamp = f"<t:{int(new_end_timestamp)}:F>"
-        await channel.send(content=f'@here , Channel has been refreshed. Stockpile will expire on {discord_timestamp}',view=self)
+        await channel.send(content=f'Channel has been refreshed. Stockpile will expire on {discord_timestamp}',view=self)
 
 
 
@@ -145,7 +145,7 @@ async def create_stockpile_channel(ctx, t_name, t_code, t_args):
         await channel.send(f'Extra info {index}: {arg}')
 
     asyncio.create_task(delete_channel_if_expired(channel.id))
-    asyncio.create_task(allow_refresh(channel.id))
+
 
     items = []
     for category in ctx.guild.categories:
@@ -173,19 +173,25 @@ async def create_stockpile_channel(ctx, t_name, t_code, t_args):
         await channel.edit(category=selected_category)
         await channel.send(f"Channel '{channel.name}' moved to category '{selected_category.name}'")
 
+    asyncio.create_task(allow_refresh(channel.id))
+
 
 async def allow_refresh(channel_id):
     channel = bot.get_channel(channel_id)
-    async for message in channel.history(limit=1000):
-        if message.author.bot:
-            # Found the last bot message.
-            # Now adding a button to refresh the timer.
-            view = RefreshButton(channel_id)
-            await message.edit(content=message.content, view=view)
-            break
+    global channel_expirations
+    try:
+        async for message in channel.history(limit=1000):
+            if message.author.bot:
+                # Found the last bot message.
+                # Now adding a button to refresh the timer.
+                view = RefreshButton(channel_id)
+                await message.edit(content=message.content, view=view)
+                break
 
-
-    print(f"Channel:{channel_id} can be refreshed.")
+        print(f"Channel:{channel_id} can be refreshed.")
+    except AttributeError:
+        del channel_expirations[channel_id]
+        print(f"Channel:{channel_id} was not found and therefore deleted.")
 
 
 async def get_intellegance():
@@ -225,8 +231,13 @@ async def find_place(channel):
 async def scheduled_fetch_n_save():
     while True:
         await fetch_n_save()
-        await asyncio.sleep(1800)  # Sleep for 30 minutes
+        await asyncio.sleep(3600)  # Sleep for 30 minutes
+
+
+async def scheduled_backup():
+    while True:
         await save_backups()
+        await asyncio.sleep(300) # Sleep for 5 minutes
 
 
 async def save_backups():
@@ -590,6 +601,7 @@ async def on_ready():
     print('Step-1. Backups loaded...')
     await re_timer()
     print('Step-2. Timers and Refreshers loaded...')
+    asyncio.create_task(scheduled_backup())
     print('Ready AF')
     await scheduled_fetch_n_save()
     print('stEp tHrEe cOmPlEtE')
