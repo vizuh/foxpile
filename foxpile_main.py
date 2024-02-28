@@ -145,6 +145,7 @@ async def create_stockpile_channel(ctx, t_name, t_code, t_args):
         await channel.send(f'Extra info {index}: {arg}')
 
     asyncio.create_task(delete_channel_if_expired(channel.id))
+    asyncio.create_task(allow_refresh(channel.id))
 
     items = []
     for category in ctx.guild.categories:
@@ -262,8 +263,6 @@ async def re_timer():
         asyncio.create_task(delete_channel_if_expired(channel_id))
         print(f"Channel: {channel_id} is on the timer again")
         asyncio.create_task(allow_refresh(channel_id))
-
-
 
 
 
@@ -545,6 +544,7 @@ async def on_message(message):
                         await channel.send(f'Extra info {index}: {arg}')
 
                     asyncio.create_task(delete_channel_if_expired(channel.id))
+                    asyncio.create_task(allow_refresh(channel.id))
                     return
 
                 #If an actual role was chosen
@@ -564,6 +564,7 @@ async def on_message(message):
                     await channel.send(f'Extra info {index}: {arg}')
 
                 asyncio.create_task(delete_channel_if_expired(channel.id))
+                asyncio.create_task(allow_refresh(channel.id))
 
     # Important: This line is required to allow other on_message commands to run.
     await bot.process_commands(message)
