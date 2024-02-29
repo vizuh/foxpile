@@ -14,6 +14,7 @@ from discord.ext import commands
 from discord.ui import Button, View
 import aiohttp
 import asyncio
+import datetime
 from datetime import timedelta
 import time
 import os
@@ -60,6 +61,7 @@ class RefreshButton(View):
     def __init__(self, channel_id):
         super().__init__()
         self.channel_id = channel_id
+        self.timeout = None
 
     @discord.ui.button(label="Refresh", style=discord.ButtonStyle.green, custom_id="refresh_button")
     async def refresh_button_callback(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -80,6 +82,7 @@ async def delete_channel_if_expired():
     """Deletes the channel if the current time is past the end_timestamp and sends a notification 12 hours before."""
     global channel_expirations
     while True:
+        print(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'), 'Running expirations.')
         for channel_id in list(channel_expirations.keys()):  # Use list() to avoid runtime error for changing dict size
             print(f'iterating for {channel_id}')
             end_timestamp = channel_expirations[channel_id]['timestamp']
@@ -92,18 +95,20 @@ async def delete_channel_if_expired():
                 del channel_expirations[channel_id]  # Remove the channel from tracking
                 break  # Assuming this is part of a loop that you want to exit
             else:
-                if time_left <= 18460 and not channel_expirations[channel_id].get('final_notice', False):
-                    channel = bot.get_channel(channel_id)
-                    if channel:
-                        await channel.send("@everyone, this channel will expire in about 5 hours!")
-                        channel_expirations[channel_id]['final_notice'] = True
-                elif time_left <= 43460 and not channel_expirations[channel_id].get('notified', False):
-                    channel = bot.get_channel(channel_id)
-                    if channel:
-                        await channel.send("@here, this channel will expire in about 12 hours!")
-                        channel_expirations[channel_id]['notified'] = True
-
-        await asyncio.sleep(60)  # Wait for 60 seconds before checking again
+                try:
+                    if time_left <= 18460 and not channel_expirations[channel_id]['final notice'] == 'True':
+                        channel = bot.get_channel(channel_id)
+                        if channel:
+                            await channel.send("@everyone, this channel will expire in about 5 hours!")
+                            channel_expirations[channel_id]['final notice'] = 'True'
+                    elif time_left <= 43460 and not channel_expirations[channel_id]['notified'] == 'True':
+                        channel = bot.get_channel(channel_id)
+                        if channel:
+                            await channel.send("@here, this channel will expire in about 12 hours!")
+                            channel_expirations[channel_id]['notified'] = 'True'
+                except KeyError:
+                    continue
+        await asyncio.sleep(300)  # Wait for 5 minutes before checking again
 
 
 async def delete_after_delay(msg, delay):
@@ -178,24 +183,22 @@ async def create_stockpile_channel(ctx, t_name, t_code, t_args):
 
 async def allow_refresh(channel_id):
     global channel_expirations
-    channel = bot.get_channel(channel_id)
-    try:
-        async for message in channel.history(limit=1000):
-            if message.author.bot:
-                # Found the last bot message.
-                # Now adding a button to refresh the timer.
-                view = RefreshButton(channel_id)
-                await message.edit(content=message.content, view=view)
-                break
+    while True:
+        channel = bot.get_channel(channel_id)
+        try:
+            async for message in channel.history(limit=1000):
+                if message.author.bot:
+                    # Found the last bot message.
+                    # Now adding a button to refresh the timer.
+                    view = RefreshButton(channel_id)
+                    await message.edit(content=message.content, view=view)
+                    break
 
-        print(f"Channel:{channel_id} can be refreshed.")
-    except AttributeError:
-        del channel_expirations[channel_id]
-        print(f"Channel:{channel_id} was not found and therefore deleted.")
-
-
-async def get_intellegance():
-    fetch_n_save()
+            print(f"Channel:{channel_id} can be refreshed.")
+        except AttributeError:
+            del channel_expirations[channel_id]
+            print(f"Channel:{channel_id} was not found and therefore deleted.")
+        await asyncio.sleep(860) # sleep for a bit less than 15 minutes
 
 
 async def find_place(channel):
@@ -230,18 +233,19 @@ async def find_place(channel):
 
 async def scheduled_fetch_n_save():
     while True:
+        print(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'),'Fetching data from foxhole API')
         await fetch_n_save()
-        await asyncio.sleep(3600)  # Sleep for 30 minutes
+        await asyncio.sleep(3600)  # Sleep for 1 hour
 
 
 async def scheduled_backup():
     while True:
+        await asyncio.sleep(300)  # Sleep for 5 minutes
         await save_backups()
-        await asyncio.sleep(300) # Sleep for 5 minutes
 
 
 async def save_backups():
-    print('Saving discord data')
+    print(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'),'Saving discord data')
     save_to_json(fxpl_values,fxpl_file_name,file_path)
     print('fxpl data saved')
     save_to_json(sides_values,sides_file_name,file_path)
@@ -595,6 +599,7 @@ async def on_reaction_add(reaction, user):
 
 @bot.event
 async def on_ready():
+    await bot.load_extension("foxility_cog")
     print(f'Logged in as {bot.user.name}')
     await load_backups()
     print('Step-1. Backups loaded...')
@@ -604,7 +609,6 @@ async def on_ready():
     print('Ready AF')
     await scheduled_fetch_n_save()
     print('stEp tHrEe cOmPlEtE')
-
 
 
 
