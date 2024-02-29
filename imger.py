@@ -30,44 +30,44 @@ def preprocess_image(image, filter_type=None, gamma=1.0):
             image = enhancer.enhance(1.5)
     return image
 
+
 def extract_text_with_conditions(image_path):
     """
-    Extract text from an image with specified preprocessing conditions.
+    Extract text from an image with specified preprocessing conditions, including Cyrillic characters.
     """
     original_image = Image.open(image_path)
 
     # Apply specified settings directly
-    options = {'filter_type': 'EDGE_ENHANCE', 'gamma': 0.8}
-    contrast_level = 3.0
+    options = {'filter_type': 'SHARPEN', 'gamma': 0.8}
+    contrast_level = 2.5
+
 
     image = preprocess_image(original_image, **options)
     enhancer = ImageEnhance.Contrast(image)
     enhanced_image = enhancer.enhance(contrast_level)
-    text = pytesseract.image_to_string(enhanced_image, config='--psm 3')
+
+    # Add 'rus' to the lang option to include Russian (Cyrillic)
+    text = pytesseract.image_to_string(enhanced_image, config='--psm 3', lang='eng+rus')
 
     lines = text.split('\n')
     found_texts = []
 
     for line in lines:
-        clean_line = re.sub(r'[\\\/\.,]', '', line).strip()
-        if len(clean_line) >= 3 and re.match(r'^[A-Za-z0-9 :]+$', clean_line):
+        # Adjust the regex to include Cyrillic and use re.UNICODE flag
+        clean_line = re.sub(r'[\\\/\.,]', '', line, flags=re.UNICODE).strip()
+        if len(clean_line) >= 3 and re.match(r'^[A-Za-z0-9 А-Яа-я:]+$', clean_line, flags=re.UNICODE):
             found_texts.append(clean_line)
 
     if len(found_texts) > 1:
-        # Initialize a variable to store the index of the string with a 6-digit number
         index_with_6_digit = -1
-        # Iterate through found_texts to find a string with a 6-digit number
         for i, text in enumerate(found_texts):
             if re.search(r'\d{6}', text):
-                # Remove all non-numeric characters from the string
                 modified_text = re.sub(r'\D', '', text)
-                # Update the list at the current index with the modified string
                 found_texts[i] = modified_text
                 index_with_6_digit = i
                 break
 
         if index_with_6_digit != -1:
-            # If a string with a 6-digit number was found and modified, rearrange the list
             found_texts.insert(1, found_texts.pop(index_with_6_digit))
 
 

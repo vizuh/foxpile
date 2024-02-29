@@ -76,10 +76,12 @@ class RefreshButton(View):
 
 
 
-async def delete_channel_if_expired(channel_id):
+async def delete_channel_if_expired():
     """Deletes the channel if the current time is past the end_timestamp and sends a notification 12 hours before."""
+    global channel_expirations
     while True:
         for channel_id in list(channel_expirations.keys()):  # Use list() to avoid runtime error for changing dict size
+            print(f'iterating for {channel_id}')
             end_timestamp = channel_expirations[channel_id]['timestamp']
             time_left = end_timestamp - time.time()
 
@@ -144,8 +146,6 @@ async def create_stockpile_channel(ctx, t_name, t_code, t_args):
     for index, arg in enumerate(t_args, start=1):
         await channel.send(f'Extra info {index}: {arg}')
 
-    asyncio.create_task(delete_channel_if_expired(channel.id))
-
 
     items = []
     for category in ctx.guild.categories:
@@ -177,8 +177,8 @@ async def create_stockpile_channel(ctx, t_name, t_code, t_args):
 
 
 async def allow_refresh(channel_id):
-    channel = bot.get_channel(channel_id)
     global channel_expirations
+    channel = bot.get_channel(channel_id)
     try:
         async for message in channel.history(limit=1000):
             if message.author.bot:
@@ -270,8 +270,9 @@ async def load_backups():
 
 
 async def re_timer():
+    asyncio.create_task(delete_channel_if_expired())
     for channel_id in channel_expirations.keys():
-        asyncio.create_task(delete_channel_if_expired(channel_id))
+
         print(f"Channel: {channel_id} is on the timer again")
         asyncio.create_task(allow_refresh(channel_id))
 
@@ -554,7 +555,6 @@ async def on_message(message):
                     for index, arg in enumerate(t_args, start=1):
                         await channel.send(f'Extra info {index}: {arg}')
 
-                    asyncio.create_task(delete_channel_if_expired(channel.id))
                     asyncio.create_task(allow_refresh(channel.id))
                     return
 
@@ -574,7 +574,6 @@ async def on_message(message):
                 for index, arg in enumerate(t_args, start=1):
                     await channel.send(f'Extra info {index}: {arg}')
 
-                asyncio.create_task(delete_channel_if_expired(channel.id))
                 asyncio.create_task(allow_refresh(channel.id))
 
     # Important: This line is required to allow other on_message commands to run.
